@@ -1,0 +1,201 @@
+% This paper is Copyright © Graeme Andrew Stewart, Philippe Gras,
+% Sanmay Ganguly, Sattwamo Ghosh and Atell Krasnopolski, 2025
+% Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0), see LICENSE
+
+\documentclass{webofc}
+\usepackage{graphicx} % Required for inserting images
+\graphicspath{{figures/}}
+\usepackage[varg]{txfonts}
+\usepackage[utf8]{inputenc}
+
+% Workaround for arXiv, start with "finalizecache" then switch to "frozencache"
+\usepackage[finalizecache,cachedir=.]{minted}
+% \usepackage[frozencache,cachedir=.]{minted}
+
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+% For draft version
+\usepackage{lineno}
+\linenumbers
+
+\newcommand{\kt}{${k}_\text{T}$}
+\newcommand{\akt}{anti-${k}_\text{T}$}
+\newcommand{\Akt}{Anti-${k}_\text{T}$}
+\newcommand{\JR}{\texttt{JetReconstruction.jl}}
+\newcommand{\ee}{$e^+e^-$}
+
+\title{Fast Jet Finding in Julia}
+
+\author{\firstname{Graeme Andrew} \lastname{Stewart}\inst{1}\fnsep\thanks{\email{graeme.andrew.stewart@cern.ch}} \and
+\firstname{Sanmay} \lastname{Ganguly}\inst{2} \and
+\firstname{Sattwamo} \lastname{Ghosh}\inst{2} \and
+\firstname{Philippe} \lastname{Gras}\inst{2}\fnsep \and
+\firstname{Atell} \lastname{Krasnopolski}\inst{3}
+% etc.
+}
+
+\institute{CERN, Esplanade des Particules 1, Geneva, Switzerland
+\and
+Indian Institute of Technology, Kanpur, India
+\and 
+IRFU, CEA, Université Paris-Saclay, Gif-sur-Yvette, France
+\and
+Julius-Maximilians-Universität Würzburg, Würzburg, Germany
+}
+
+\abstract{%
+Jet reconstruction remains a critical task in the analysis of data from HEP
+colliders. We describe in this paper a new, highly performant, Julia package for
+jet reconstruction, \JR, which integrates into the growing
+ecosystem of Julia packages for HEP. With this package users can run sequential
+reconstruction algorithms for jets. In particular, for LHC events, the \Akt,
+Cambridge/Aachen and Inclusive algorithms can be used. For FCCee studies the
+use of alternative algorithms such as the Generalised \kt\ and Durham are also
+supported.
+
+The full reconstruction history is made available, allowing inclusive and
+exclusive jets to be retrieved. The package also provides the means to visualise
+the reconstruction.
+
+The implementation of the package in Julia is discussed, with an emphasis on the
+features of the language that allow for an easy to work with, ergonomic, code
+implementation, that achieves high-performance. Julia's ecosystem offers the
+possibility to vectorise code, using single-instruction-multiple-data
+processing, in way that is transparent for the developer and more flexible than
+optimization done via C and C++ compilers. Thanks to this feature, the
+performance of \JR\ is better than the current Fastjet C++
+implementation for jet clustering of $pp$ events produced at the LHC
+and for typical events for FCCee.
+
+Finally, an example of an FCCee analysis using \JR\ is shown.}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+\label{sec:introduction}
+
+High energy physics (HEP) software is inherently
+multi-lingual~\cite{pivarski2022}. Across the field actively used codes exist in
+Fortran, C++, Python, Go, Java, Javascript -- and this is certainly an
+incomplete list, if all corners were to be explored. However, for code that is
+used in mainline HEP workflows two languages have dominated in the last few
+decades: C++ and Python. C++ saw major adoption in the BaBar experiment at SLAC
+and then the experiments at the Large Hardon Collider. Python has also grown
+enormously in popularity in recent years for the LHC experiments, indeed
+becoming and almost ubiquitous across the field. These languages have different
+strengths, with C++ excelling at runtime performance, used heavily for
+simulation and reconstruction; and Python shining in the areas of rapid
+turnaround, prototyping and steering, being then particularly strong in the
+analysis domain.
+
+The current status of C++ and Python, with these languages having rather
+different paradigms, leads to friction and potentially awkward interfaces. Code
+first developed in Python may not run efficiently at scale, leading to
+inefficient use of computing resources; that may necessitate a rewrite in C++.
+The current generation of physicists is generally far more comfortable in Python
+and there is a loss of skills in C++.
+
+An alternative option, which is attracting increasing interest, is to use a
+language that can bring the runtime advantages of C++, but the ergonomic ease of
+Python. The \emph{Julia Programming
+Language}~\cite{bib:julia_freshapproach,10.1145/3276490} was designed
+specifically to do this efficiently and effectively, and has been adopted by
+many scientific communities~\cite{perkel-julia-science}. In HEP explorations of
+Julia have been promising~\cite{Stanitzki:2020bnx,eschle2023potential}.
+In particular, a recent comparison of Julia, Python and C++ for the task of
+\emph{sequential jet finding}~\cite{polyglot-jets-chep23} fond that Julia
+performed as well as, or better, than C++, with improved code ergonomics. 
+
+In this paper we report on the developments that have happened in the Julia code
+presented in~\cite{polyglot-jets-chep23}, in particular the improvements that
+have resulted in the recent release of the production Julia package,
+\JR~\cite{jetreconstruction-jl-github}. The package has been made more
+accessible to users, with comprehensive documentation and consistent interfaces.
+New algorithms have been introduced, spefically targeting jet reconstruction at
+\ee\ experiments, including reading data from Key4HEP's EDM4hep data format
+files. Support for jet substructure analysis at $pp$ colliders has been
+introduced. We also give the latest benchmarking results, that continue to
+demonstrate faster runtimes than Fastjet~\cite{Cacciari:2011ma} for almost all
+parameters.
+
+\section{Production Release of Julia Jet Reconstruction}
+\label{sec:prodrel}
+
+Details of the algorithms and strategies used in the Julia version of jet
+finding have been described in~\cite{polyglot-jets-chep23}. However, at the time
+of that publication, due to the different development history of the two
+strategies which were implemented, the return values from the code were
+different. In the \texttt{N2Plain} case an implicit $p_T$ cut, selecting
+inclusive jets, was made; whereas in the \texttt{N2Tiled} strategy a dedicated
+object, called a \texttt{ClusterSequence} was returned. The advantage of the
+latter (which is inspired by Fastjet) is that it stores the entire history of
+the reconstruction process. Therefore it is much more useful for subsequent
+processing and analysis of the jet reconstruction. Therefore, for the production
+release this was unified to returning a \texttt{ClusterSequence}.
+
+Once \texttt{ClusterSequence} was identified as the common return type, this
+allowed the development of the other core jet selection, viz.\ \emph{inclusive
+jets}. An interface was added where the same method can be used to make a
+selection on either the number of final jets, or on the maximum value of the
+metric distance ($d_{ij}$) -- this takes advantage of the fact that in Julia
+method parameters can be named, providing a clearer interface than type based
+method selection in C++.
+
+Another adaption to \texttt{ClusterSequence} was to interface the pre-existing
+jet visualisation support in the package. This support comes from the Julia
+visualisation package \emph{Makie}~\cite{Danisch2021}. As Makie is a heavy
+dependency, we take advantage of the \emph{extensions} feature of the Julia
+packaging system, where the visualisation extensions to \JR\ are only loaded if
+\texttt{Makie} already exists in the current user environment. An example of the
+output from the visualisation extension is shown in Figure \ref{fig:jetvisplot}.
+Taking advantage of the fact that all reconstruction steps are captured by the
+\texttt{ClusterSequence} a new visualisation option was added, which animates
+the reconstruction process~\cite{jetrecoAnimationCHEP2024}.
+
+\begin{figure}[h]
+    \begin{center}
+        % TODO: improve the quality of this plot. %
+        \includegraphics[width=0.8\linewidth]{jetvis-5-compact.pdf}
+        \caption{Visualisation of a typical $pp$ collision jet reconstruction, using \Akt, in the $\phi-y$ (phi, rapidity) plane. The height of each bar indicates the original cluster energy and the colour represents the final jet clustering, i.e., all clusters with the same colour are clustered together. In this example $R=2$, to make the final clusterings clearer.}
+        \label{fig:jetvisplot}
+    \end{center}
+\end{figure}
+
+The difference between the two core strategies is that \texttt{N2Tiled} scales
+much better to higher initial cluster densities, very much found for LHC $pp$
+events. However, there is an overhead for this tiling, which makes the
+\texttt{N2Plain} strategy better at low cluster densities. It is highly
+desirable that the user would not have to manually select a strategy, so
+heuristic performance scan was made, indicating that the performance of each
+strategy is about the same for 80 input clusters. Therefore a third strategy,
+\texttt{Best} was introduced, which selects \texttt{N2Plain} for 80 clusters or
+less, otherwise \texttt{N2Tiled}. this can be further extended in the future, if
+specialist strategies for very high densities are added, e.g., to deal
+specifically with heavy ion type events.
+
+Before a useful release of the software could be made, documentation for the
+package was written. This was done using the standard Julia documentation
+support package, \texttt{Documenter.jl}~\cite{documenter-jl}, which has the
+great advantage of using the inline code docstrings to document methods. This
+allowed us to use AI (Github Co-pilot) to bootstrap docstrings from the code
+itself. Documentation was then published onto the JuliaHEP organisiation's
+GitHib Pages website~\cite{jetreco-docs}.
+
+With all of this refactoring done, and with an enhanced suite of tests added,
+the first public release of \JR\, v0.3.0, was made in June 2024. The package was
+added to the Julia public registry, making installing it for any user as simple
+as \texttt{add JetReconstruction} from the standard Julia package interface.
+
+\section{Conclusions}
+\label{sec:conclusions}
+
+\sloppy
+\raggedright
+% \clearpage
+\bibliography{fast-jet-finding-julia}
+
+\end{document}
