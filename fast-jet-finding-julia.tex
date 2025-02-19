@@ -5,6 +5,7 @@
 \documentclass{webofc}
 \usepackage{graphicx} % Required for inserting images
 \graphicspath{{figures/}}
+\usepackage{subcaption}
 \usepackage[varg]{txfonts}
 \usepackage[utf8]{inputenc}
 
@@ -165,7 +166,7 @@ the reconstruction process~\cite{jetrecoAnimationCHEP2024}.
 \begin{figure}[h]
     \begin{center}
         % TODO: improve the quality of this plot. %
-        \includegraphics[width=0.8\linewidth]{jetvis-5-compact.pdf}
+        \includegraphics[width=0.6\linewidth]{jetvis-5-compact.pdf}
         \caption{Visualisation of a typical $pp$ collision jet reconstruction, using \Akt, in the $y-\phi$ (rapidity, azimuthal angle) plane. The height of each bar indicates the original cluster energy and the colour represents the final jet clustering, i.e., all clusters with the same colour are clustered together. In this example $R=2$, to make the final clusterings clearer.}
         \label{fig:jetvisplot}
     \end{center}
@@ -259,7 +260,7 @@ For an optimal implementation of the \ee\ algorithms we introduce a new Julia
 structure to represent an jet to be reconstructed in $(\theta, \phi)$ space, an \texttt{EEjet}.
 
 \begin{minted}{julia}
-mutable struct EEjet <: FourMomentum
+    mutable struct EEjet <: FourMomentum
     px::Float64
     py::Float64
     pz::Float64
@@ -267,7 +268,7 @@ mutable struct EEjet <: FourMomentum
     _p2::Float64
     _inv_p::Float64
     _cluster_hist_index::Int
-end
+    end
 \end{minted}
 
 This structure mainly differs from the \texttt{PseudoJet} used for $pp$
@@ -278,22 +279,98 @@ of the abstract type \texttt{FourMomentum}, which allows us to parameterise the
 implementation at runtime, with generic code for the \texttt{ClusterSequence}, viz.
 
 \begin{minted}{julia}
-struct ClusterSequence{T <: FourMomentum}
+    struct ClusterSequence{T <: FourMomentum}
     ...
     jets::Vector{T}
     ...
-end
+    end
 \end{minted}
 
 \section{$pp$ and \ee Performance}
 \label{sec:performance}
 
-We have benchmarked the performance of \JR\ v0.4.3 against Fastjet v3.4.3\footnote{The benchmark machine used was an AMD Ryzen 7, 5700G 3.8GHz (8 cores, plus HT), 32GB RAM, running AlmaLinux 9.4. Julia v1.11.1 was used for \JR\ and Fastjet was compiled with gcc 11.4.1 using \texttt{-O2}. Benchmark runs are repeated 32 times and are stable to 1\%.}.
+We have benchmarked the performance of \JR\ v0.4.3 against Fastjet v3.4.3\footnote{The benchmark machine used was an AMD Ryzen 7, 5700G 3.8GHz (8 cores, plus HT), 32GB RAM, running AlmaLinux 9.4. Julia v1.11.1 was used for \JR\ and Fastjet was compiled with gcc 11.4.1 using \texttt{-O2}. Benchmark runs are repeated 32 times and are stable to 1\%.}. Pythia was used to generate input events at different cluster densities. Each sample consisted of 100 events and where the average density varied from 43 to 632, for $pp$ events and from 43 to 65 for \ee\ events.
 
+\subsection{$pp$ Algorithms}
 
+The results for \akt\ jet reconstruction are shown in Figures
+\ref{fig:antiktTiledResults} and \ref{fig:antiktPlainResults}. The results from
+\JR\ are consistently faster than Fastjet. For the more relevant tiled strategy,
+which is favoured at $pp$ event densities, Julia is 14-18\% faster, depending on
+the particular algorithm chosen, as seen in Table \ref{tab:ppratios}.
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-Fastjet-AntiKt-N2Tiled-MultiR.png}
+        \caption{Jet reconstruction time for \akt\ jet reconstruction at different values of $R$, using the \texttt{N2Tiled} strategy. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
+        \label{fig:antiktTiledResults}
+    \end{center}
+\end{figure}
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-Fastjet-AntiKt-N2Plain-MultiR.png}
+        \caption{Jet reconstruction time for \akt\ jet reconstruction at different values of $R$, using the \texttt{N2Plain} strategy. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
+        \label{fig:antiktPlainResults}
+    \end{center}
+\end{figure}
+
+\begin{table}[h]
+    \begin{center}
+        \begin{tabular}{l|ccc}
+            \textbf{Algorithm} & \textbf{N2Tiled} & \textbf{N2Plain} & \textbf{N2Plain}, $R>=1.0$ \\
+            \hline
+            \Akt & 1.14 & 6.46 & 1.49 \\
+            Cambridge/Aachen & 1.18 & 6.03 & 1.80 \\
+            Inclusive \kt & 1.16 & 6.50 & 1.73 \\
+        \end{tabular}
+        \caption{Mean ratio of Fastjet reconstruction time to Julia (thus $>1$ indicates Julia is faster) for different $pp$ algorithms, for all values of $R$ and cluster density. As Fastjet's behaviour at $R<1$ for \texttt{N2Plain} is pathological, the mean ratio for $R>=1$ is also given.}
+        \label{tab:ppratios}
+    \end{center}
+\end{table}
+
+\subsection{\ee\ Algorithms}
+
+The performance of the Julia versions of the Durham compared to Fastjet is shown
+in Figures \ref{fig:eeDurham} and \ref{fig:eeKt}. The Julia implementation in
+\JR\ is consistently faster than Fastjet, by 33\% for the Durham algorithm and,
+on average, by 40\% for generalised \kt\ \ee\, as seen in Table \ref{tab:eeratios}.
+
+\begin{figure}[h]
+    \begin{subfigure}{0.47\textwidth}
+        \begin{center}
+            \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-FastJet-Durham.png}
+            \caption{Jet reconstruction time for the Durham algorithm at different \ee\ event densities. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
+            \label{fig:eeDurham}
+        \end{center}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.47\textwidth}
+        \begin{center}
+            \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-FastJet-EEKt-R1.png}
+            \caption{Jet reconstruction time for the Generalised \kt\ \ee\ algorithm for typical parameters: $p=-1$, $R=1$. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
+            \label{fig:eeKt}
+        \end{center}
+    \end{subfigure}
+\end{figure}
+
+\begin{table}[h]
+    \begin{center}
+        \begin{tabular}{l|c}
+            \textbf{Algorithm} & \textbf{Runtime Ratio} \\
+            \hline
+            Durham & 1.33 \\
+            Generalised \kt\ \ee & 1.40 \\
+        \end{tabular}
+        \caption{Mean ratio of Fastjet reconstruction time to Julia (thus $>1$ indicates Julia is faster) for different \ee\ algorithms. The Durham value is averaged over all sample cluster densities. The Generalised \kt\ \ee\ is averaged over all sample cluster densities, $p \in (-1, 0, 1)$ and $R \in (0.2, 0.4, 1, 1.5, 2, 4)$.}
+        \label{tab:eeratios}
+    \end{center}
+\end{table}
 
 \section{Substructure and Taggers}
 \label{sec:sstag}
+
+
 
 \section{FCCee Jets and EDM4hep}
 \label{sec:fccee}
