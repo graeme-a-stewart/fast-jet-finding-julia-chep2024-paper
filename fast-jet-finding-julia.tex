@@ -84,7 +84,7 @@ Fortran, C++, Python, Go, Java, Javascript -- and this is certainly an
 incomplete list, if all corners were to be explored. However, for code that is
 used in mainline HEP workflows two languages have dominated in the last few
 decades: C++ and Python. C++ saw major adoption in the BaBar experiment at SLAC
-and then the experiments at the Large Hardon Collider. Python has also grown
+and then the experiments at the Large Hadron Collider. Python has also grown
 enormously in popularity in recent years for the LHC experiments, indeed
 becoming and almost ubiquitous across the field. These languages have different
 strengths, with C++ excelling at runtime performance, used heavily for
@@ -115,7 +115,7 @@ presented in~\cite{polyglot-jets-chep23}, in particular the improvements that
 have resulted in the recent release of the production Julia package,
 \JR~\cite{jetreconstruction-jl-github}. The package has been made more
 accessible to users, with comprehensive documentation and consistent interfaces.
-New algorithms have been introduced, spefically targeting jet reconstruction at
+New algorithms have been introduced, specifically targeting jet reconstruction at
 \ee\ experiments, including reading data from Key4HEP's EDM4hep data format
 files. Support for jet substructure analysis at $pp$ colliders has been
 introduced. We also give the latest benchmarking results, that continue to
@@ -127,12 +127,12 @@ parameters.
 
 Details of the algorithms and strategies used in the Julia version of jet
 finding have been described in~\cite{polyglot-jets-chep23}. However, at the time
-of that publication, due to the different development history of the two
-strategies which were implemented, the return values from the code were
+of that publication, due to the different development history of how the two
+strategies were implemented, the return values from the reconstruction were
 different. In the \texttt{N2Plain} case an implicit $p_T$ cut, selecting
 inclusive jets, was made; whereas in the \texttt{N2Tiled} strategy a dedicated
 object, called a \texttt{ClusterSequence} was returned. The advantage of the
-latter (which is inspired by Fastjet) is that it stores the entire history of
+latter (which was inspired by Fastjet) is that it stores the entire history of
 the reconstruction process. Therefore it is much more useful for subsequent
 processing and analysis of the jet reconstruction. Therefore, for the production
 release this was unified to returning a \texttt{ClusterSequence}.
@@ -144,6 +144,12 @@ selection on either the number of final jets, or on the maximum value of the
 metric distance ($d_{ij}$) -- this takes advantage of the fact that in Julia
 method parameters can be named, providing a clearer interface than type based
 method selection in C++.
+
+In addition to the jet selection, another algorithm for $pp$ jet reconstruction
+was added, the generalised \kt algorithm. This algorithm uses as a momentum
+metric $k^{2p}_\text{T}$ where the power value $p$ is arbitrary (and for
+specific integer powers of $-1$, $0$ and $1$, maps to the well known \akt,
+Cambridge/Aachen, and inclusive \kt\ algorithms, respectively).
 
 Another adaption to \texttt{ClusterSequence} was to interface the pre-existing
 jet visualisation support in the package. This support comes from the Julia
@@ -160,7 +166,7 @@ the reconstruction process~\cite{jetrecoAnimationCHEP2024}.
     \begin{center}
         % TODO: improve the quality of this plot. %
         \includegraphics[width=0.8\linewidth]{jetvis-5-compact.pdf}
-        \caption{Visualisation of a typical $pp$ collision jet reconstruction, using \Akt, in the $\phi-y$ (phi, rapidity) plane. The height of each bar indicates the original cluster energy and the colour represents the final jet clustering, i.e., all clusters with the same colour are clustered together. In this example $R=2$, to make the final clusterings clearer.}
+        \caption{Visualisation of a typical $pp$ collision jet reconstruction, using \Akt, in the $y-\phi$ (rapidity, azimuthal angle) plane. The height of each bar indicates the original cluster energy and the colour represents the final jet clustering, i.e., all clusters with the same colour are clustered together. In this example $R=2$, to make the final clusterings clearer.}
         \label{fig:jetvisplot}
     \end{center}
 \end{figure}
@@ -182,13 +188,115 @@ package was written. This was done using the standard Julia documentation
 support package, \texttt{Documenter.jl}~\cite{documenter-jl}, which has the
 great advantage of using the inline code docstrings to document methods. This
 allowed us to use AI (Github Co-pilot) to bootstrap docstrings from the code
-itself. Documentation was then published onto the JuliaHEP organisiation's
+itself. Documentation was then published onto the JuliaHEP organisation's
 GitHib Pages website~\cite{jetreco-docs}.
 
 With all of this refactoring done, and with an enhanced suite of tests added,
 the first public release of \JR\, v0.3.0, was made in June 2024. The package was
 added to the Julia public registry, making installing it for any user as simple
 as \texttt{add JetReconstruction} from the standard Julia package interface.
+
+\section{Support for \ee\ algorithms}
+\label{sec:ee}
+
+To add support for the reconstruction of jets in \ee\ events, some different
+algorithms are needed. The essential idea of sequential jet reconstruction
+remains the same: calculation of a distance metric between all clusters, then
+merging the clusters with the lowest metric. However, for \ee\ events it is
+preferable to reconstruct in geometric space, $(\theta, \phi)$ instead of $(y,
+\phi)$. This is because experiments usually operate at the production threshold
+of the processes of most interest, so objects of interest are less boosted than
+at the LHC.
+
+There are two main algorithms of interest: the Durham Algorithm and the Generalised \kt\ for \ee.
+
+\subsection{Durham Algorithm}
+\label{sec:durham}
+
+For the Durham Algorithm the metric distance between jets $i$ and $j$ is defined as:
+
+$$
+d_{ij} = 2 \text{min}(E_i^2, E_j^2) (1 - \cos \theta_{ij})
+$$
+
+where $E_{i}$ is the cluster energy and $\theta_{ij}$ is the angular separation between $i$ and $j$.
+
+The reconstruction implementation in \JR\ is then called with
+
+\begin{minted}{julia}
+    cs = jet_reconstruct(particles; algorithm=Durham)
+\end{minted}
+
+No additional parameters are required. In principle the Durham algorithm
+proceeds until all clusters are merged to a single jet, but actual analysis will
+utilise an exclusive jet cut, for the number of jets of interest.
+
+\subsection{Generalised \kt\ for \ee}
+\label{sec:getktee}
+
+For the Generalised \kt\ for \ee\ algorithm, the distance metrics are:
+
+$$
+d_{ij} = \text{min}(E_i^{2p}, E_j^{2p}) \frac{1 - \cos \theta_{ij}}{1 - \cos R}
+$$
+$$
+d_{iB} = E_i^{2p}
+$$
+
+For an power value $p$ and a radius parameter $R$. This means jets are finalised
+when no clusters are found within angular distance $R$ of when $R<\pi$ (this is
+very similar to the behaviour of the $pp$ algorithms). In \JR\ we follow the
+Fastjet prescription that for $R>\pi$ the denominator is replaced by $3+\cos
+R$~\cite{fastjetmanual}.
+
+In the case when $p=1$ and $\pi < R < 3\pi$ the clustering sequence is identical
+to the Durham Algorithm (save for a normalisation factor of 2).
+
+\subsection{Implementation Details}
+\label{eeimplementation}
+
+For an optimal implementation of the \ee\ algorithms we introduce a new Julia
+structure to represent an jet to be reconstructed in $(\theta, \phi)$ space, an \texttt{EEjet}.
+
+\begin{minted}{julia}
+mutable struct EEjet <: FourMomentum
+    px::Float64
+    py::Float64
+    pz::Float64
+    E::Float64
+    _p2::Float64
+    _inv_p::Float64
+    _cluster_hist_index::Int
+end
+\end{minted}
+
+This structure mainly differs from the \texttt{PseudoJet} used for $pp$
+reconstruction in that the cached values are optimised for the different
+reconstruction scheme. Both \texttt{EEjet} and \texttt{PseudoJet} are subtypes
+of the abstract type \texttt{FourMomentum}, which allows us to parameterise the
+\texttt{ClusterSequence} on the jet type, thus benefiting from a type specific
+implementation at runtime, with generic code for the \texttt{ClusterSequence}, viz.
+
+\begin{minted}{julia}
+struct ClusterSequence{T <: FourMomentum}
+    ...
+    jets::Vector{T}
+    ...
+end
+\end{minted}
+
+\section{$pp$ and \ee Performance}
+\label{sec:performance}
+
+We have benchmarked the performance of \JR\ v0.4.3 against Fastjet v3.4.3\footnote{The benchmark machine used was an AMD Ryzen 7, 5700G 3.8GHz (8 cores, plus HT), 32GB RAM, running AlmaLinux 9.4. Julia v1.11.1 was used for \JR\ and Fastjet was compiled with gcc 11.4.1 using \texttt{-O2}. Benchmark runs are repeated 32 times and are stable to 1\%.}.
+
+
+
+\section{Substructure and Taggers}
+\label{sec:sstag}
+
+\section{FCCee Jets and EDM4hep}
+\label{sec:fccee}
 
 \section{Conclusions}
 \label{sec:conclusions}
