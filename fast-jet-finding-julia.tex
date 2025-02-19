@@ -370,13 +370,59 @@ on average, by 40\% for generalised \kt\ \ee\, as seen in Table \ref{tab:eeratio
 \section{Substructure and Taggers}
 \label{sec:sstag}
 
+At the LHC jet substructure is a critical component of many physics studies,
+probing the internal structure of jets, which can be crucial for distinguishing
+between different types of particles and for identifying new physics signals. In
+\JR, since v0.4.4, we have implemented several substructure algorithms and taggers that are
+commonly used in LHC analyses.
 
+The substructure algorithms \emph{soft
+drop}~\cite{Larkoski_2014} and \emph{mass drop}~\cite{Butterworth_2008} are
+implemented, . To use these taggers, we allow users to define a simple structure
+with the relevant tagging parameters, then to call the appropriate tagger
+method. The implementation of these taggers has been validated against Fastjet
+and the performance in \JR\ is considerably improved, as can be seen in Figure
+\ref{fig:massdrop}.
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.6\linewidth]{time-massdrop.png}
+        \caption{Julia and Fastjet timing for the mass drop tagger with parameters $\mu=0.67$, $y=0.09$.}
+        \label{fig:massdrop}
+    \end{center}
+\end{figure}
+
+The \emph{jet filtering}~\cite{Butterworth_2008} and \emph{jet
+trimming}~\cite{Krohn_2010} methods have also been introduced in \JR. These
+methods are used to mitigate the effects of pileup and underlying event
+contamination in jet reconstruction and are used in a similar way to the
+taggers: a simple struct of parameters is defined and the appropriate method
+called to obtain a cleaned jet. For the case of this noise removal the
+performance is almost identical to Fastjet.
 
 \section{FCCee Jets and EDM4hep}
 \label{sec:fccee}
 
+As an example of how to easily support experiment EDMs in \JR\ we have
+introduced support for reading EDM4hep [cite] events directly. Like
+visualisation, this support takes advantage of the Julia package manager's
+concept of \emph{extensions}, which means that the additional code to support
+this is not loaded unless the \texttt{EDM4hep.jl} package is present in the
+user's environment. Once this is done it is trivial to call the main jet
+reconstruction directly using the \texttt{ReconstructedParticles} object from an
+EDM4hep ROOT file.
+
+On our benchmark machine, using the Durham algorithm, the jet reconstruction can
+reach 24kHz on a single thread.
+
 \section{Conclusions}
 \label{sec:conclusions}
+
+\JR\ has been released as a production package in the Julia ecosystem. It is
+easy to use and gives better performance than Fastjet in most cases. Feedback
+from users has been very positive. We intend to continue to develop that package
+in the future, allowing HEP users to benefit from the advantages of Julia in
+their analyses.
 
 \sloppy
 \raggedright
