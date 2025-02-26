@@ -365,39 +365,38 @@ The substructure algorithms \emph{soft
 drop}~\cite{Larkoski_2014} and \emph{mass drop}~\cite{Butterworth_2008} are
 implemented. To use these taggers, we allow users to define a simple structure
 with the relevant tagging parameters, then to call the appropriate tagger
-method. The implementation of these taggers has been validated against Fastjet
-and the performance in \JR\ is considerably improved, as can be seen in Figure
-\ref{fig:massdrop}.
-
-\begin{figure}[ht]
-    \begin{subfigure}{0.47\textwidth}
-        \begin{center}
-            \includegraphics[width=0.8\linewidth]{time-massdrop.png}
-            \caption{Julia and Fastjet timing for the mass drop tagger with parameters $\mu=0.67$, $y=0.09$.}
-            \label{fig:massdrop}
-        \end{center}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}{0.47\textwidth}
-        \begin{center}
-            \includegraphics[width=0.8\linewidth]{time-filter.png}
-            \caption{Julia and Fastjet timing for a typical jet filtering task.}
-            \label{fig:jetfilter}
-        \end{center}
-    \end{subfigure}
-\end{figure}
-
-\begin{figure}[h]
-
-\end{figure}
+method.
 
 The \emph{jet filtering}~\cite{Butterworth_2008} and \emph{jet
 trimming}~\cite{Krohn_2010} methods have also been introduced in \JR. These
 methods are used to mitigate the effects of pileup and underlying event
 contamination in jet reconstruction and are used in a similar way to the
 taggers: a simple struct of parameters is defined and the appropriate method
-called to obtain a cleaned jet. For the case of this noise removal the
-performance is close to Fastjet, Figure \ref{fig:jetfilter}.
+called to obtain a cleaned jet.
+
+The average time to perform the substructure and tagging routines on our
+benchmark machine is shown in Table \ref{tab:subtag}. Fastjet is somewhat faster
+for filtering and trimming, while \JR\ is quite a lot faster for the mass drop
+algorithm.
+
+\begin{table}[ht]
+    \begin{center}
+        \begin{tabular}{l|ccc}
+            \textbf{Method} & \textbf{\JR} & textbf{Fastjet} & Ratio\\
+            \hline
+            Jet Filtering & 3.37 & 2.47 & 0.73 \\
+            Jet Trimming & 2.80 & 2.26 & 0.81 \\
+            Mass Drop & 0.26 & 0.85 & 3.2 \\
+            Soft Drop & 2.85 & -- & -- \\
+        \end{tabular}
+        \caption{Time in $\mu\mathrm{s}$ to perform various substructure and
+        tagging operations in \JR\ and in Fastjet. The average is taken by
+        performing these operations on all inclusive jets above 2GeV in all of
+        our input sample files. Note that soft drop is not available in
+        the Fastjet release.}
+        \label{tab:subtag}
+    \end{center}
+\end{table}
 
 \section{FCCee Jets and EDM4hep}
 \label{sec:fccee}
