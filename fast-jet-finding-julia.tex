@@ -54,13 +54,14 @@ colliders. We describe in this paper a new, highly performant, Julia package for
 jet reconstruction, \JR, which integrates into the growing ecosystem of Julia
 packages for HEP. With this package users can run sequential reconstruction
 algorithms for jets. In particular, for LHC events, the \Akt, Cambridge/Aachen
-and Inclusive algorithms can be used. For FCCee studies the use of alternative
-algorithms such as the Generalised \kt\ for \ee\ and Durham are also supported.
+and Inclusive-\kt\ algorithms can be used. For FCCee studies the use of
+alternative algorithms such as the Generalised \kt\ for \ee\ and Durham are also
+supported.
 
-The performance of core algorithms is better than Fastjet's C++ implementation,
-for typical LHC and FCCee events, thanks to the Julia compiler's exploitation of
-single-instruction-multiple-data (SIMD), as well as ergonomic compact data
-layouts.
+The performance of the core algorithms is better than Fastjet's C++
+implementation, for typical LHC and FCCee events, thanks to the Julia compiler's
+exploitation of single-instruction-multiple-data (SIMD), as well as ergonomic
+compact data layouts.
 
 The full reconstruction history is made available, allowing inclusive and
 exclusive jets to be retrieved. The package also provides the means to visualise
@@ -78,33 +79,32 @@ other future collider studies in Julia.}
 
 High energy physics (HEP) software is inherently
 multi-lingual~\cite{pivarski2022}. Across the field actively used codes exist in
-Fortran, C++, Python, Go, Java, Javascript -- and this is certainly an
-incomplete list, if all corners were to be explored. However, for code that is
-used in mainline HEP workflows two languages have dominated in the last few
-decades: C++ and Python. C++ saw adoption at the BaBar experiment at SLAC and at
-the Large Hadron Collider (LHC) experiments. Python has also grown enormously in
-popularity in recent years for the LHC experiments, becoming almost ubiquitous
-across the field. These languages have different strengths, with C++ excelling
-at runtime performance, used heavily for simulation and reconstruction; and
-Python shining in the areas of rapid turnaround, prototyping and steering, being
-then particularly strong in the analysis domain.
+many different languages. For the code that is used in mainline HEP workflows
+two languages have dominated in the last few decades: C++ and Python. C++ saw
+adoption at the BaBar experiment at SLAC and, subsequently, at the Large Hadron
+Collider (LHC) experiments. Python has grown enormously in popularity in recent
+years, becoming almost ubiquitous across the field. These languages have
+different strengths, with C++ excelling at runtime performance, used heavily for
+simulation and reconstruction; and Python shining in the areas of rapid
+turnaround, prototyping and steering, being then particularly strong in the
+analysis domain.
 
 The current status of C++ and Python, with these languages having rather
 different paradigms, leads to friction and potentially awkward interfaces. Code
-first developed in Python may not run efficiently at scale, leading to
-inefficient use of computing resources; that may necessitate a rewrite in C++.
-The current generation of physicists is generally far more comfortable in Python
-and there is a loss of skills in C++, which is a challenge for the experiments.
+developed in Python may not run efficiently at scale, leading to inefficient use
+of computing resources, then perhaps necessitating a rewrite in C++. The current
+generation of physicists is generally far more comfortable in Python and there
+is a loss of skills in C++, which is a challenge for the experiments.
 
 An alternative option, which is attracting increasing interest, is to use a
 language that can bring the runtime advantages of C++, but the ergonomic
 advantages of Python. The \emph{Julia Programming
 Language}~\cite{bib:julia_freshapproach,10.1145/3276490} was designed
 specifically to do this efficiently and effectively, and has been adopted by
-many scientific communities~\cite{perkel-julia-science}. In HEP explorations of
+many scientific communities~\cite{perkel-julia-science}. In HEP, explorations of
 Julia have been promising~\cite{Stanitzki:2020bnx,eschle2023potential}. In
 particular, a recent comparison of Julia, Python and C++ for the task of
-\emph{sequential jet finding}~\cite{polyglot-jets-chep23} fond that Julia
+\emph{sequential jet finding}~\cite{polyglot-jets-chep23} found that Julia
 performed as well as, or better, than C++, with improved code ergonomics. 
 
 In this paper we report on the developments that have happened in the Julia code
@@ -116,46 +116,48 @@ New algorithms have been introduced, specifically targeting jet reconstruction
 at \ee\ experiments, including reading data from Key4HEP's
 EDM4hep~\cite{Gaede:2022leb} data format files. Support for jet substructure
 analysis at $pp$ colliders has been introduced. We also give the latest
-benchmarking results, that continue to demonstrate faster runtimes than
+benchmarking results, that continue to demonstrate better performance than
 Fastjet~\cite{Cacciari:2011ma} for almost all parameters.
 
 \section{Production Release of Julia Jet Reconstruction}
 \label{sec:prodrel}
 
-Details of the algorithms and strategies used in the Julia version of jet
-finding have been described in~\cite{polyglot-jets-chep23}. However, due to the
-different development history of how the two strategies were implemented, the
-original return values from the reconstruction were different. In the
-\texttt{N2Plain} case an implicit $p_T$ cut, selecting inclusive jets, was made;
-whereas in the \texttt{N2Tiled} strategy a dedicated object, called a
-\texttt{ClusterSequence} was returned. The advantage of the latter (which was
-inspired by Fastjet) is that it stores the entire history of the reconstruction
-process. Therefore it is much more useful for subsequent processing and analysis
-of the jet reconstruction. For the production release this was therefore unified
-to returning a \texttt{ClusterSequence}.
+Details of the algorithms and strategies used for $pp$ events in the Julia
+version of jet finding have been described in~\cite{polyglot-jets-chep23}.
+However, due to the different development history of how the two strategies,
+\texttt{N2Plain} and \texttt{N2Tiled}, were implemented, the original return
+values from the reconstruction were different. In the \texttt{N2Plain} case an
+implicit $p_T$ cut, selecting inclusive jets, was made; whereas in the
+\texttt{N2Tiled} strategy a dedicated object, called a \texttt{ClusterSequence}
+was returned. The advantage of the latter (which was inspired by Fastjet) is
+that it stores the entire history of the reconstruction process. Therefore it is
+much more useful for subsequent processing and analysis of the jet
+reconstruction. For the production release this was therefore unified to
+returning a \texttt{ClusterSequence} in both cases.
 
-This choice then allowed the implementation of the other core jet selection, viz.\
-\emph{inclusive jets}. An interface was added where the same method can be used
-to make a selection on either the number of final jets, or on the maximum value
-of the metric distance ($d_{ij}$) -- this takes advantage of the fact that in
-Julia method parameters can be named, providing a clearer interface than type
-based method selection in C++.
+This choice then allowed the implementation of the other core jet selection,
+viz.\ \emph{inclusive jets}. An interface was added where the same method can be
+used to make a selection on either the number of final jets, or on the maximum
+value of the metric distance ($d_{ij}$) -- this takes advantage of the fact that
+in Julia method parameters can be named, providing a clearer interface than the
+type based method selection in C++.
 
 In addition to the jet selection, another algorithm for $pp$ jet reconstruction
-was added, the generalised \kt algorithm. This algorithm uses as a momentum
-metric $k^{2p}_\text{T}$ where the power value $p$ is arbitrary (and for
+was added, the generalised \kt\ algorithm. This algorithm uses as a momentum
+metric $k^{2p}_\text{T}$, where the power value $p$ is arbitrary (and for
 specific integer powers of $-1$, $0$ and $1$, maps to the well known \akt,
-Cambridge/Aachen, and inclusive \kt\ algorithms, respectively).
+Cambridge/Aachen, and inclusive-\kt\ algorithms, respectively).
 
-Support for the visualisation through the Julia visualisation package
-\emph{Makie}~\cite{Danisch2021} was improved. As Makie is a heavy dependency, we
-take advantage of the \emph{extensions} feature of the Julia packaging system,
-where the visualisation extensions to \JR\ are only loaded if \texttt{Makie}
-already exists in the current user environment. An example of the output from
-the visualisation extension is shown in Figure \ref{fig:jetvisplot}. Taking
-advantage of the fact that all reconstruction steps are captured by the
-\texttt{ClusterSequence} a new visualisation option was added, which animates
-the reconstruction process~\cite{jetrecoAnimationCHEP2024}.
+Support for the visualisation of jet reconstruction, through the Julia
+visualisation package \emph{Makie}~\cite{Danisch2021}, has been improved. As
+Makie is a heavy dependency, we take advantage of the \emph{extensions} feature
+of the Julia packaging system, where the visualisation extensions to \JR\ are
+only loaded if \texttt{Makie} already exists in the current user environment. An
+example of the output from the visualisation extension is shown in Figure
+\ref{fig:jetvisplot}. Taking advantage of the fact that all reconstruction steps
+are captured by the \texttt{ClusterSequence} a new visualisation option was
+added, which animates the reconstruction
+process~\cite{jetrecoAnimationCHEP2024}.
 
 \begin{figure}[h]
     \begin{center}
@@ -170,7 +172,7 @@ Of the two core strategies, \texttt{N2Tiled} scales much better to higher
 initial cluster densities, as found in typical LHC $pp$ events. However, there
 is an overhead for this tiling, which makes the \texttt{N2Plain} strategy better
 at low cluster densities. It is highly desirable that the user would not have to
-manually select a strategy, so heuristic performance scan was made, indicating
+manually select a strategy, so a heuristic performance scan was made, indicating
 that the performance of each strategy is about the same for 80 input clusters.
 Therefore a third strategy, \texttt{Best} was introduced, which selects
 \texttt{N2Plain} for 80 clusters or less, otherwise \texttt{N2Tiled}.
@@ -194,12 +196,13 @@ To add support for the reconstruction of jets in \ee\ events, some different
 algorithms are needed. The essential idea of sequential jet reconstruction
 remains the same: calculation of a distance metric between all clusters, then
 merging the clusters with the lowest metric and repeating. However, for \ee\
-events it is preferable to reconstruct in geometric space, $(\theta, \phi)$
-instead of $(y, \phi)$. This is because experiments usually operate at the
-production threshold of the processes of most interest, so objects of interest
-are less boosted than at the LHC.
+events it is preferable to reconstruct in geometric space, $(\theta, \phi)$,
+instead of rapidity space, $(y, \phi)$. This is because experiments usually
+operate at the production threshold of the processes of particular interest, so
+jets are less boosted than at the LHC.
 
-There are two main algorithms of interest: the Durham Algorithm and the Generalised \kt\ for \ee.
+There are two main algorithms of interest: the Durham Algorithm and the
+Generalised \kt\ for \ee.
 
 \subsection{Durham Algorithm}
 \label{sec:durham}
@@ -229,19 +232,18 @@ For the Generalised \kt\ for \ee\ algorithm, the distance metrics are:
 
 $$
 d_{ij} = \text{min}(E_i^{2p}, E_j^{2p}) \frac{1 - \cos \theta_{ij}}{1 - \cos R}
-$$
-$$
+\quad ; \quad
 d_{iB} = E_i^{2p}
 $$
 
-For an power value $p$ and a radius parameter $R$. This means jets are finalised
-when no clusters are found within angular distance $R$ of when $R<\pi$ (this is
+For a power value $p$ and a radius parameter $R$. This means jets are finalised
+when no clusters are found within an angular distance $R$, when $R<\pi$ (this is
 very similar to the behaviour of the $pp$ algorithms). In \JR\ we follow the
 Fastjet prescription that for $R>\pi$ the denominator is replaced by $3+\cos
 R$~\cite{fastjetmanual}.
 
 In the case when $p=1$ and $\pi < R < 3\pi$ the clustering sequence is identical
-to the Durham Algorithm (save for a normalisation factor of 2).
+to the Durham Algorithm, save for a normalisation factor of 2.
 
 \subsection{Implementation Details}
 \label{eeimplementation}
@@ -258,11 +260,20 @@ implementation at runtime, with generic code for the \texttt{ClusterSequence}, v
 
 \begin{minted}{julia}
     struct ClusterSequence{T <: FourMomentum}
-    ...
-    jets::Vector{T}
-    ...
+        ...
+        jets::Vector{T}
+        ...
     end
 \end{minted}
+
+As the algorithm is being executed additional compact arrays, that track
+parameters used by the calculation (e.g., the nearest neighbour active cluster,
+the angle to the nearest neighbour, the fractional momentum in the $x$, $y$ and
+$z$ directions, etc.), are maintained for computational efficiency. We use the
+Julia package \texttt{StructArrays.jl}~\cite{structarrays}, which allows us to
+maintain an ergonomic \emph{array of structures} interface, but underlying this
+is a computationally efficient \emph{structure of arrays}, which gives excellent
+performance, as shown in Section \ref{sec:eeperf}.
 
 \section{$pp$ and \ee Performance}
 \label{sec:performance}
@@ -284,7 +295,7 @@ The results for \akt\ jet reconstruction are shown in Figures
 which is favoured at $pp$ event densities, Julia is 14-18\% faster, depending on
 the particular algorithm chosen, as seen in Table \ref{tab:ppratios}.
 
-\begin{figure}[ht]
+\begin{figure}[th]
     \begin{center}
         \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-Fastjet-AntiKt-N2Tiled-MultiR.png}
         \caption{Jet reconstruction time for \akt\ jet reconstruction at different values of $R$, using the \texttt{N2Tiled} strategy. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
@@ -292,7 +303,7 @@ the particular algorithm chosen, as seen in Table \ref{tab:ppratios}.
     \end{center}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[th]
     \begin{center}
         \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-Fastjet-AntiKt-N2Plain-MultiR.png}
         \caption{Jet reconstruction time for \akt\ jet reconstruction at different values of $R$, using the \texttt{N2Plain} strategy. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
@@ -300,7 +311,7 @@ the particular algorithm chosen, as seen in Table \ref{tab:ppratios}.
     \end{center}
 \end{figure}
 
-\begin{table}[ht]
+\begin{table}[th]
     \begin{center}
         \begin{tabular}{l|ccc}
             \textbf{Algorithm} & \textbf{N2Tiled} & \textbf{N2Plain} & \textbf{N2Plain}, $R>=1.0$ \\
@@ -309,23 +320,24 @@ the particular algorithm chosen, as seen in Table \ref{tab:ppratios}.
             Cambridge/Aachen & 1.18 & 6.03 & 1.80 \\
             Inclusive \kt & 1.16 & 6.50 & 1.73 \\
         \end{tabular}
-        \caption{Mean ratio of Fastjet reconstruction time to Julia (thus $>1$ indicates Julia is faster) for different $pp$ algorithms, for all values of $R \in (0.2, 0.4, 1, 1.5, 2, 4)$ and sample cluster densities. As Fastjet's behaviour at $R<1$ for \texttt{N2Plain} is pathological, the mean ratio for $R>=1$ is also given.}
+        \caption{Mean ratio of Fastjet reconstruction time to Julia (thus $>1$ indicates Julia is faster) for different $pp$ algorithms, for all values of $R \in (0.2, 0.4, 1, 1.5, 2, 4)$ and all sample cluster densities. As Fastjet's behaviour at $R<1$ for \texttt{N2Plain} is pathological, the mean ratio for $R>=1$ is also given.}
         \label{tab:ppratios}
     \end{center}
 \end{table}
 
 \subsection{\ee\ Algorithms}
+\label{sec:eeperf}
 
 The performance of the Julia versions of the Durham compared to Fastjet is shown
 in Figures \ref{fig:eeDurham} and \ref{fig:eeKt}. The Julia implementation in
 \JR\ is consistently faster than Fastjet, by 33\% for the Durham algorithm and,
 on average, by 40\% for generalised \kt\ \ee\, as seen in Table \ref{tab:eeratios}.
 
-\begin{figure}[ht]
+\begin{figure}[th]
     \begin{subfigure}{0.47\textwidth}
         \begin{center}
             \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-FastJet-Durham.png}
-            \caption{Jet reconstruction time for the Durham algorithm at different \ee\ event densities. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
+            \caption{Durham.}
             \label{fig:eeDurham}
         \end{center}
     \end{subfigure}
@@ -333,13 +345,15 @@ on average, by 40\% for generalised \kt\ \ee\, as seen in Table \ref{tab:eeratio
     \begin{subfigure}{0.47\textwidth}
         \begin{center}
             \includegraphics[width=0.8\linewidth]{Alma9-AMD-Ryzen7-Julia-FastJet-EEKt-R1.png}
-            \caption{Jet reconstruction time for the Generalised \kt\ \ee\ algorithm for typical parameters: $p=-1$, $R=1$. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
+            \caption{Generalised \kt\ \ee\ $p=-1$, $R=1$.}
             \label{fig:eeKt}
         \end{center}
     \end{subfigure}
+    \caption{Jet reconstruction times for \ee\ algorithms. Reconstruction time for Julia and Fastjet are plotted against the average cluster density of different samples.}
+    \label{fig:eeperf}
 \end{figure}
 
-\begin{table}[ht]
+\begin{table}[th]
     \begin{center}
         \begin{tabular}{l|c}
             \textbf{Algorithm} & \textbf{Runtime Ratio} \\
@@ -365,9 +379,7 @@ The substructure algorithms \emph{soft
 drop}~\cite{Larkoski_2014} and \emph{mass drop}~\cite{Butterworth_2008} are
 implemented. To use these taggers, we allow users to define a simple structure
 with the relevant tagging parameters, then to call the appropriate tagger
-method.
-
-The \emph{jet filtering}~\cite{Butterworth_2008} and \emph{jet
+method. The \emph{jet filtering}~\cite{Butterworth_2008} and \emph{jet
 trimming}~\cite{Krohn_2010} methods have also been introduced in \JR. These
 methods are used to mitigate the effects of pileup and underlying event
 contamination in jet reconstruction and are used in a similar way to the
@@ -375,14 +387,14 @@ taggers: a simple struct of parameters is defined and the appropriate method
 called to obtain a cleaned jet.
 
 The average time to perform the substructure and tagging routines on our
-benchmark machine is shown in Table \ref{tab:subtag}. Fastjet is somewhat faster
-for filtering and trimming, while \JR\ is quite a lot faster for the mass drop
+benchmark machine is shown in Table \ref{tab:subtag}. Fastjet is faster
+for filtering and trimming, while \JR\ is much faster for the mass drop
 algorithm.
 
 \begin{table}[ht]
     \begin{center}
         \begin{tabular}{l|ccc}
-            \textbf{Method} & \textbf{\JR} & \textbf{Fastjet} & \textbf{Ratio}\\
+            \textbf{Method} & \textbf{\JR} & \textbf{Fastjet} & \textbf{Ratio (Fj/JR)}\\
             \hline
             Jet Filtering & 3.37 & 2.47 & 0.73 \\
             Jet Trimming & 2.80 & 2.26 & 0.81 \\
@@ -393,7 +405,7 @@ algorithm.
         tagging operations in \JR\ and in Fastjet (jet filtering is with a
         filter radius of 0.3 and selecting the 3 hardest jets; trimming is uses
         a trim radius and trim fraction of 0.3, with Cambridge/Aachen
-        reclustering; mass drop is with $\mu = 0.67$, $y=0.09$; and soft drop
+        reclustering; mass drop uses $\mu = 0.67$, $y=0.09$; and soft drop
         uses $z_{cut}=0.1$, $b=2.0$). The average is taken by performing these
         operations on all inclusive jets above 2GeV in all of our input sample
         files. Note that soft drop is not available in the Fastjet release.}
