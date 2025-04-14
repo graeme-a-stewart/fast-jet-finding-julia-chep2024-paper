@@ -92,7 +92,7 @@ analysis domain.
 The current status of C++ and Python, with these languages having rather
 different paradigms, leads to friction and potentially awkward interfaces. Code
 developed in Python may not run efficiently at scale, leading to inefficient use
-of computing resources, then perhaps necessitating a rewrite in C++. The current
+of computing resources, even necessitating a rewrite in C++. The current
 generation of physicists is generally far more comfortable in Python and there
 is a loss of skills in C++, which is a challenge for the experiments.
 
@@ -112,7 +112,7 @@ presented in~\cite{polyglot-jets-chep23}, in particular the improvements that
 have resulted in the recent release of the production Julia package,
 \JR~\cite{jetreconstruction-jl-github}. The package has been made more
 accessible to users, with comprehensive documentation and consistent interfaces.
-New algorithms have been introduced, specifically targeting jet reconstruction
+New algorithms have been introduced targeting jet reconstruction
 at \ee\ experiments, including reading data from Key4HEP's
 EDM4hep~\cite{Gaede:2022leb} data format files. Support for jet substructure
 analysis at $pp$ colliders has been introduced. We also give the latest
@@ -128,25 +128,29 @@ However, due to the different development history of how the two strategies,
 \texttt{N2Plain} and \texttt{N2Tiled}, were implemented, the original return
 values from the reconstruction were different. In the \texttt{N2Plain} case an
 implicit $p_T$ cut, selecting inclusive jets, was made; whereas in the
-\texttt{N2Tiled} strategy a dedicated object, called a \texttt{ClusterSequence}
-was returned. The advantage of the latter (which was inspired by Fastjet) is
-that it stores the entire history of the reconstruction process. Therefore it is
-much more useful for subsequent processing and analysis of the jet
-reconstruction. For the production release this was therefore unified to
-returning a \texttt{ClusterSequence} in both cases.
+\texttt{N2Tiled} strategy a dedicated  object that encapsulates the
+reconstruction sequence was returned that contains a record of all jet merging
+steps, with parents and metric distance ($d_{ij}$) parameter, allowing the
+complete graph of the process to be obtained. This structure, a
+\texttt{ClusterSequence} object, is much more useful as this information is
+required for further jet processing. This object is now used in all sequential
+reconstruction algorithms (but always through accessors, to hide internal
+implementation details).
 
 This choice then allowed the implementation of the other core jet selection,
 viz.\ \emph{inclusive jets}. An interface was added where the same method can be
 used to make a selection on either the number of final jets, or on the maximum
 value of the metric distance ($d_{ij}$) -- this takes advantage of the fact that
 in Julia method parameters can be named, providing a clearer interface than the
-type based method selection in C++.
+type based method selection in C++ (e.g.,
+\texttt{inclusive\_jets(cs::ClusterSequence; ptmin=5.0)} for a $p_T$ cut).
 
 In addition to the jet selection, another algorithm for $pp$ jet reconstruction
 was added, the generalised \kt\ algorithm. This algorithm uses as a momentum
 metric $k^{2p}_\text{T}$, where the power value $p$ is arbitrary (and for
 specific integer powers of $-1$, $0$ and $1$, maps to the well known \akt,
-Cambridge/Aachen, and inclusive-\kt\ algorithms, respectively).
+Cambridge/Aachen, and inclusive-\kt\ algorithms,
+respectively~\cite{Cacciari:2005hq,Matteo_Cacciari_2008,fastjetmanual}).
 
 Support for the visualisation of jet reconstruction, through the Julia
 visualisation package \emph{Makie}~\cite{Danisch2021}, has been improved. As
@@ -163,25 +167,25 @@ process~\cite{jetrecoAnimationCHEP2024}.
     \begin{center}
         % TODO: improve the quality of this plot. %
         \includegraphics[width=0.6\linewidth]{jetvis-5-compact.pdf}
-        \caption{Visualisation of a typical $pp$ collision jet reconstruction, using \akt with $R=2$, in the $y-\phi$ (rapidity, azimuthal angle) plane. The height of each bar indicates the original cluster energy and the colour represents the final jet clustering, i.e., all clusters with the same colour are clustered together.}
+        \caption{Visualisation of a typical $pp$ collision jet reconstruction, using \akt\ with $R=2$, in the $y-\phi$ (rapidity, azimuthal angle) plane. The height of each bar indicates the original cluster energy and the colour represents the final jet clustering, i.e., all clusters with the same colour are clustered together.}
         \label{fig:jetvisplot}
     \end{center}
 \end{figure}
 
-Of the two core strategies, \texttt{N2Tiled} scales much better to higher
+Of the two core strategies, \texttt{N2Tiled} scales better to higher
 initial cluster densities, as found in typical LHC $pp$ events. However, there
 is an overhead for this tiling, which makes the \texttt{N2Plain} strategy better
 at low cluster densities. It is highly desirable that the user would not have to
 manually select a strategy, so a heuristic performance scan was made, indicating
 that the performance of each strategy is about the same for 80 input clusters.
-Therefore a third strategy, \texttt{Best} was introduced, which selects
-\texttt{N2Plain} for 80 clusters or less, otherwise \texttt{N2Tiled}.
+So a third strategy, \texttt{Best} was introduced, which selects
+\texttt{N2Plain} for $<=80$ clusters, otherwise \texttt{N2Tiled}.
 
 Before a useful release of the software could be made, documentation for the
 package had to be written. This was done using the standard Julia documentation
 support package, \texttt{Documenter.jl}~\cite{documenter-jl}, which has the
 great advantage of using the inline code docstrings to document methods.
-Documentation was then published onto the JuliaHEP organisation's GitHib Pages
+Documentation was then published onto the JuliaHEP organisation's GitHub Pages
 website~\cite{jetreco-docs}.
 
 With all of this refactoring done, and with an enhanced suite of tests added,
@@ -249,7 +253,7 @@ to the Durham Algorithm, save for a normalisation factor of 2.
 \label{eeimplementation}
 
 For an optimal implementation of the \ee\ algorithms we introduce a new Julia
-structure to represent an jet to be reconstructed in $(\theta, \phi)$ space, an \texttt{EEjet}.
+structure to represent a jet to be reconstructed in $(\theta, \phi)$ space, an \texttt{EEjet}.
 
 This structure mainly differs from the \texttt{PseudoJet} used for $pp$
 reconstruction in that the cached values are optimised for the different
@@ -408,7 +412,7 @@ algorithm.
         reclustering; mass drop uses $\mu = 0.67$, $y=0.09$; and soft drop
         uses $z_{cut}=0.1$, $\beta=2.0$). The average is taken by performing these
         operations on all inclusive jets above 2GeV in all of our input sample
-        files. Note that soft drop is not available in the Fastjet release.}
+        files. Note that soft drop is not available in the core Fastjet release.}
         \label{tab:subtag}
     \end{center}
 \end{table}
@@ -416,7 +420,7 @@ algorithm.
 \section{FCCee Jets and EDM4hep}
 \label{sec:fccee}
 
-As an example of how to easily support experiment EDMs in \JR\ we have
+As an example of how to easily support experiment event data models (EDM) in \JR\ we have
 introduced support for reading EDM4hep~\cite{Gaede:2022leb} events directly. Like
 visualisation, this support takes advantage of the Julia package manager's
 concept of \emph{extensions}, which means that the additional code to support
