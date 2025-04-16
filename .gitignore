@@ -307,6 +307,9 @@ TSWLatexianTemp*
 # Signed copy, do not upload!
 publication_right_form-fast-jet-finding-julia.pdf
 
+# Review comments and responses, don't upload
+review*
+
 # Minted/pygments files
 *.pygtex
 *.pygstyle
