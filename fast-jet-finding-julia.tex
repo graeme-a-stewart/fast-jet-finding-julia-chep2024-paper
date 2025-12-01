@@ -9,9 +9,11 @@
 \usepackage[varg]{txfonts}
 \usepackage[utf8]{inputenc}
 
-% With the new minted there's no need to specify cache options
-% manually
-\usepackage{minted}
+% Switch to the listings package as minted cannot be used currently
+% with arXiv. Unfortunately attempts to define Julia as a known
+% language led to errors, so we currently have no syntax highlighting
+\usepackage{listings}
+\usepackage{xcolor}
 
 \usepackage{natbib}
 \usepackage{hyperref}
@@ -221,9 +223,9 @@ where $E_{i}$ is the cluster energy and $\theta_{ij}$ is the angular separation 
 
 The reconstruction implementation in \JR\ is then called with
 
-\begin{minted}{julia}
+\begin{lstlisting}
     cs = jet_reconstruct(particles; algorithm=Durham)
-\end{minted}
+\end{lstlisting}
 
 No additional parameters are required. In principle the Durham algorithm
 proceeds until all clusters are merged to a single jet, but actual analysis will
@@ -262,13 +264,13 @@ of the abstract type \texttt{FourMomentum}, which allows us to parameterise the
 \texttt{ClusterSequence} on the jet type, thus benefiting from a type specific
 implementation at runtime, with generic code for the \texttt{ClusterSequence}, viz.
 
-\begin{minted}{julia}
+\begin{lstlisting}
     struct ClusterSequence{T <: FourMomentum}
         ...
         jets::Vector{T}
         ...
     end
-\end{minted}
+\end{lstlisting}
 
 As the algorithm is being executed additional compact arrays, that track
 parameters used by the calculation (e.g., the nearest neighbour active cluster,
